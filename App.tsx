@@ -373,14 +373,53 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="relative w-full aspect-[21/12] bg-slate-950/50 rounded-xl border border-white/5 overflow-hidden">
-                <svg className="w-full h-full" viewBox="0 0 1200 750">
-                  {/* Connection Lines */}
-                  <path d="M 100 80 L 350 80 L 350 180 L 350 280 L 700 280 L 700 400 L 400 400 L 400 500 L 650 500 L 850 500 L 1050 500 L 1050 680 L 1150 680" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="40" strokeLinecap="round" />
+              <div className="relative w-full h-[600px] bg-slate-950/50 rounded-xl border border-white/5 overflow-y-auto custom-scrollbar">
+                <svg className="w-full min-w-[1000px]" viewBox="0 0 1200 750" style={{ height: '750px' }}>
+                  <defs>
+                    <pattern id="conveyorPattern" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                      <line x1="0" y1="10" x2="20" y2="10" stroke="rgba(255,255,255,0.03)" strokeWidth="2" />
+                    </pattern>
+                    <linearGradient id="carGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="rgba(255,255,255,0.2)" />
+                      <stop offset="50%" stopColor="rgba(255,255,255,0)" />
+                      <stop offset="100%" stopColor="rgba(255,255,255,0.2)" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Main Conveyor Path - Visual Background */}
+                  <path 
+                    d="M 100 80 L 350 80 L 350 180 L 350 280 L 700 280 L 700 400 L 400 400 L 400 500 L 650 500 L 850 500 L 1050 500 L 1050 680 L 1150 680" 
+                    fill="none" 
+                    stroke="rgba(255,255,255,0.03)" 
+                    strokeWidth="44" 
+                    strokeLinecap="round" 
+                  />
                   
-                  {/* Repair Loop Line */}
-                  <path d="M 400 500 L 400 680 L 400 500" fill="none" stroke="rgba(245,158,11,0.05)" strokeWidth="30" strokeLinecap="round" />
-                  <path d="M 850 500 L 850 600 L 400 600 L 400 680" fill="none" stroke="rgba(245,158,11,0.05)" strokeWidth="20" strokeLinecap="round" />
+                  {/* Animated Conveyor Belt Effect */}
+                  <path 
+                    d="M 100 80 L 350 80 L 350 180 L 350 280 L 700 280 L 700 400 L 400 400 L 400 500 L 650 500 L 850 500 L 1050 500 L 1050 680 L 1150 680" 
+                    fill="none" 
+                    stroke="rgba(99, 102, 241, 0.1)" 
+                    strokeWidth="2" 
+                    strokeDasharray="10, 20"
+                    className="animate-[conveyor_10s_linear_infinite]"
+                  />
+
+                  {/* Repair Loop Lines */}
+                  <path 
+                    d="M 400 500 L 400 680 L 400 500" 
+                    fill="none" 
+                    stroke="rgba(245,158,11,0.05)" 
+                    strokeWidth="30" 
+                    strokeLinecap="round" 
+                  />
+                  <path 
+                    d="M 850 500 L 850 600 L 400 600 L 400 680" 
+                    fill="none" 
+                    stroke="rgba(245,158,11,0.05)" 
+                    strokeWidth="20" 
+                    strokeLinecap="round" 
+                  />
 
                   {/* Nodes */}
                   {Object.values(STAGES).map((stage) => (
@@ -391,7 +430,7 @@ const App: React.FC = () => {
                         width="120" 
                         height="80" 
                         rx="12" 
-                        className={`fill-slate-900 stroke-white/10 transition-all ${stage.id === 'REPAIR' ? 'stroke-amber-500/30' : ''}`}
+                        className={`fill-slate-900/80 stroke-white/10 transition-all ${stage.id === 'REPAIR' ? 'stroke-amber-500/30' : ''}`}
                       />
                       <text 
                         x={stage.x} 
@@ -415,11 +454,36 @@ const App: React.FC = () => {
                   {/* Vehicles */}
                   {activeVehicles.map((v) => {
                     const stage = STAGES[v.currentStage];
-                    const vx = stage.x + (Math.random() * 30 - 15);
-                    const vy = stage.y + (Math.random() * 30 - 15);
+                    
+                    // Logic to arrange vehicles in a line within the stage
+                    const vehiclesInStage = activeVehicles.filter(veh => veh.currentStage === v.currentStage);
+                    const indexInStage = vehiclesInStage.findIndex(veh => veh.id === v.id);
+                    
+                    // Calculate progress for smooth movement within the station
+                    const progress = Math.min(1, (Date.now() - (v.processStartTime || 0)) / (v.actualDuration * 1000 / simSpeed));
+                    
+                    // Determine orientation and spacing based on stage type
+                    const isVertical = ['TRIM_1', 'TRIM_2', 'TRIM_3', 'REPAIR'].includes(v.currentStage);
+                    const spacing = 25;
+                    const queueOffset = (indexInStage - (vehiclesInStage.length - 1) / 2) * spacing;
+                    
+                    // Interpolate position to simulate movement through the station
+                    const movementRange = 30;
+                    const movementOffset = (progress - 0.5) * movementRange;
+                    
+                    let vx = stage.x;
+                    let vy = stage.y;
+                    
+                    if (isVertical) {
+                      vy += queueOffset + movementOffset;
+                    } else {
+                      vx += queueOffset + movementOffset;
+                    }
+
+                    const rotation = isVertical ? 90 : 0;
 
                     return (
-                      <g key={v.id} transform={`translate(${vx}, ${vy})`} className="transition-all duration-1000">
+                      <g key={v.id} transform={`translate(${vx}, ${vy}) rotate(${rotation})`} className="transition-all duration-700 ease-linear">
                         {/* Shadow */}
                         <rect x="-11" y="-5" width="22" height="14" rx="3" fill="black" opacity="0.2" />
                         
@@ -439,7 +503,7 @@ const App: React.FC = () => {
                         <rect x="8" y="-4" width="2" height="2" rx="0.5" fill="#fff" opacity="0.8" />
                         <rect x="8" y="2" width="2" height="2" rx="0.5" fill="#fff" opacity="0.8" />
 
-                        <text y="-15" textAnchor="middle" className="text-[8px] font-mono fill-white/50 font-bold">{v.id}</text>
+                        <text y="-15" transform={`rotate(${-rotation})`} textAnchor="middle" className="text-[8px] font-mono fill-white/50 font-bold">{v.id}</text>
                         
                         {/* Status Indicator */}
                         {v.state === 'Em_reparo' && (

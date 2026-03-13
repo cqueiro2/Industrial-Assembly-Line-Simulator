@@ -22,6 +22,9 @@
   background: #1e293b;
   border-radius: 4px;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+@layer utilities {
+  @keyframes conveyor {
+    from { stroke-dashoffset: 300; }
+    to { stroke-dashoffset: 0; }
+  }
 }
