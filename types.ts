@@ -1,77 +1,71 @@
 
-export interface Point {
-  x: number;
-  y: number;
-}
+export type StageId = 
+  | 'BODY_STORAGE' 
+  | 'TRIM_1' 
+  | 'TRIM_2' 
+  | 'TRIM_3' 
+  | 'MGR' 
+  | 'FAI' 
+  | 'AREA_BRANCA' 
+  | 'WATER_TEST' 
+  | 'NOISE_TEST' 
+  | 'REPAIR' 
+  | 'SHIPPING' 
+  | 'FINISHED';
 
-export enum StationType {
-  STORAGE = 'STORAGE',
-  ASSEMBLY = 'ASSEMBLY',
-  MGR = 'MGR',
-  TEST = 'TEST',
-  QUALITY = 'QUALITY',
-  REPAIR = 'REPAIR',
-  SHIPPING = 'SHIPPING',
-  PRE_DELIVERY = 'PRE_DELIVERY'
-}
+export type VehicleState = 
+  | 'Em_processo' 
+  | 'Aguardando_inspeção' 
+  | 'Aprovado' 
+  | 'Reprovado' 
+  | 'Em_reparo' 
+  | 'Reparo_concluído';
 
-export type FailurePriority = 'P1' | 'P2' | 'P3' | 'P4';
-export type FailureType = 'ELECTRICAL' | 'ELECTRONIC' | 'MECHANICAL' | 'LEAKAGE';
-export type QualityStatus = 'NONE' | 'PASS' | 'FAIL';
-export type RollTestStep = 'READY' | 'ECATS' | 'ACCEL' | 'BRAKE' | 'DONE';
-export type AndonStatus = 'GREEN' | 'YELLOW' | 'RED';
-
-export interface Station {
-  id: string;
-  name: string;
-  pos: Point;
-  wait: number; 
-  type: StationType;
-  width?: number;
-  height?: number;
-  isBroken?: boolean;
+export interface HistoryEntry {
+  stage: StageId;
+  state: VehicleState;
+  timestamp: number;
+  details?: string;
 }
 
 export interface Vehicle {
   id: string;
-  pos: Point;
-  rotation: number;
-  pathIdx: number;
-  targetPath: Point[];
-  waitingTimer: number;
-  hasDefect: boolean;
+  currentStage: StageId;
+  state: VehicleState;
+  history: HistoryEntry[];
+  repairCycles: number;
+  entryTime: number;
+  exitTime?: number;
+  failureCount: number;
+  processStartTime?: number;
+  actualDuration?: number;
   color: string;
-  baseColor: string;
-  isLocked: boolean;
-  failureType: FailureType | null;
-  priority: FailurePriority | null;
-  entryBufferTime: number | null; // Timestamp de entrada no buffer
-  currentLeadTime: number;
-  
-  viaVerde: boolean; 
-  rollTestStatus: QualityStatus;
-  waterTestStatus: QualityStatus;
-  preDeliveryStatus: QualityStatus;
-  
-  needsH2ORetesting: boolean;
-  readyForOffloading: boolean;
-  inRepair: boolean;
-  assignedCabinId: string | null;
-  rollStep: RollTestStep;
-  hasPassedFAI: boolean;
 }
 
-export interface SimulationStats {
-  produced: number;
-  defects: number;
-  active: number;
-  totalStarted: number;
-  passedFirstTime: number; 
-  ftrSuccesses: number;    
-  repairCompletedCount: number;
-  categoryVolumes: Record<FailureType, number>;
-  rollTestProcessed: number;
-  andon: AndonStatus;
-  currentTakt: number;
-  targetTakt: number;
+export interface StageConfig {
+  id: StageId;
+  name: string;
+  duration: number;
+  failureProb: number;
+  capacity: number;
+  x: number;
+  y: number;
+}
+
+export interface Metrics {
+  totalProduced: number;
+  totalApproved: number;
+  totalRejected: number;
+  totalReworked: number;
+  approvalRate: number;
+  reworkRate: number;
+  avgCycleTime: number;
+  bottlenecks: Record<StageId, number>;
+}
+
+export interface SimulationState {
+  veiculos: Vehicle[];
+  metricas: Metrics;
+  eventos: string[];
+  currentTime: number;
 }
