@@ -259,6 +259,47 @@ const App: React.FC = () => {
     });
   };
 
+  // Helper for path interpolation
+  const getPathPoints = (from: StageId, to: StageId) => {
+    const fromStage = STAGES[from];
+    const toStage = STAGES[to];
+    const points = [{ x: fromStage.x, y: fromStage.y }];
+
+    if (from === 'MGR' && to === 'FAI') {
+      points.push({ x: 700, y: 400 }, { x: 400, y: 400 });
+    } else if (from === 'WATER_TEST' && to === 'REPAIR') {
+      points.push({ x: 850, y: 600 }, { x: 400, y: 600 });
+    } else if (from === 'REPAIR' && to === 'FAI') {
+      // Direct vertical path back to FAI
+      points.push({ x: 400, y: 590 }); 
+    } else if (from === 'FAI' && to === 'REPAIR') {
+      // Direct vertical path to repair
+      points.push({ x: 400, y: 590 });
+    } else if (from === 'NOISE_TEST' && to === 'SHIPPING') {
+      points.push({ x: 1050, y: 590 });
+    }
+    
+    points.push({ x: toStage.x, y: toStage.y });
+    return points;
+  };
+
+  const interpolateAlongPoints = (points: {x: number, y: number}[], t: number) => {
+    if (points.length < 2) return { x: points[0]?.x || 0, y: points[0]?.y || 0, rotation: 0 };
+    
+    const segmentCount = points.length - 1;
+    const segmentIndex = Math.min(Math.floor(t * segmentCount), segmentCount - 1);
+    const segmentT = (t * segmentCount) - segmentIndex;
+    
+    const p1 = points[segmentIndex];
+    const p2 = points[segmentIndex + 1];
+    
+    return {
+      x: p1.x + (p2.x - p1.x) * segmentT,
+      y: p1.y + (p2.y - p1.y) * segmentT,
+      rotation: Math.atan2(p2.y - p1.y, p2.x - p1.x) * (180 / Math.PI)
+    };
+  };
+
   const activeVehicles = useMemo(() => 
     simState.veiculos.filter(v => v.currentStage !== 'FINISHED'), 
   [simState.veiculos]);
@@ -454,36 +495,56 @@ const App: React.FC = () => {
                   {/* Vehicles */}
                   {activeVehicles.map((v) => {
                     const stage = STAGES[v.currentStage];
-                    
-                    // Logic to arrange vehicles in a line within the stage
-                    const vehiclesInStage = activeVehicles.filter(veh => veh.currentStage === v.currentStage);
-                    const indexInStage = vehiclesInStage.findIndex(veh => veh.id === v.id);
-                    
-                    // Calculate progress for smooth movement within the station
                     const progress = Math.min(1, (Date.now() - (v.processStartTime || 0)) / (v.actualDuration * 1000 / simSpeed));
                     
-                    // Determine orientation and spacing based on stage type
-                    const isVertical = ['TRIM_1', 'TRIM_2', 'TRIM_3', 'REPAIR'].includes(v.currentStage);
-                    const spacing = 25;
-                    const queueOffset = (indexInStage - (vehiclesInStage.length - 1) / 2) * spacing;
+                    // Find previous stage to calculate path transition
+                    const prevStageId = v.history.length > 1 ? v.history[v.history.length - 2].stage : null;
                     
-                    // Interpolate position to simulate movement through the station
-                    const movementRange = 30;
-                    const movementOffset = (progress - 0.5) * movementRange;
+                    // Transition phase (first 30% of time in new stage is spent traveling)
+                    const travelThreshold = 0.3;
                     
-                    let vx = stage.x;
-                    let vy = stage.y;
-                    
-                    if (isVertical) {
-                      vy += queueOffset + movementOffset;
+                    let vx, vy, rotation;
+
+                    if (prevStageId && progress < travelThreshold) {
+                      const travelProgress = progress / travelThreshold;
+                      const points = getPathPoints(prevStageId, v.currentStage);
+                      const pos = interpolateAlongPoints(points, travelProgress);
+                      vx = pos.x;
+                      vy = pos.y;
+                      rotation = pos.rotation;
                     } else {
-                      vx += queueOffset + movementOffset;
+                      // At station phase
+                      const vehiclesInStage = activeVehicles.filter(veh => veh.currentStage === v.currentStage);
+                      const indexInStage = vehiclesInStage.findIndex(veh => veh.id === v.id);
+                      
+                      const isVertical = ['TRIM_1', 'TRIM_2', 'TRIM_3', 'REPAIR'].includes(v.currentStage);
+                      const spacing = 25;
+                      const queueOffset = (indexInStage - (vehiclesInStage.length - 1) / 2) * spacing;
+                      
+                      // Small movement within station
+                      const stationProgress = prevStageId ? (progress - travelThreshold) / (1 - travelThreshold) : progress;
+                      const movementRange = 20;
+                      const movementOffset = (stationProgress - 0.5) * movementRange;
+                      
+                      vx = stage.x;
+                      vy = stage.y;
+                      
+                      if (isVertical) {
+                        vy += queueOffset + movementOffset;
+                        rotation = 90;
+                      } else {
+                        vx += queueOffset + movementOffset;
+                        rotation = 0;
+                      }
                     }
 
-                    const rotation = isVertical ? 90 : 0;
-
                     return (
-                      <g key={v.id} transform={`translate(${vx}, ${vy}) rotate(${rotation})`} className="transition-all duration-700 ease-linear">
+                      <g 
+                        key={v.id} 
+                        transform={`translate(${vx}, ${vy}) rotate(${rotation})`} 
+                        className="transition-all ease-linear"
+                        style={{ transitionDuration: `${500 / simSpeed}ms` }}
+                      >
                         {/* Shadow */}
                         <rect x="-11" y="-5" width="22" height="14" rx="3" fill="black" opacity="0.2" />
                         
