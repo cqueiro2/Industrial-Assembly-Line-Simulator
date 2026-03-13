@@ -1,0 +1,5 @@
+{
+  "name": "Industrial Assembly Line Simulator",
+  "description": "A high-fidelity industrial production line simulation featuring automated vehicle assembly, station processing, quality control loops, and real-time dashboard analytics.",
+  "requestFramePermissions": []
+}
